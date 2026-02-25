@@ -8,7 +8,6 @@ use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use zonuexe\BrokenJson\DecodeIssueType;
 use zonuexe\BrokenJson\DecodeOptions;
 use zonuexe\BrokenJson\Decoder;
 use zonuexe\BrokenJson\DecoderFactory;
@@ -125,16 +124,6 @@ final class DecoderTest extends TestCase
         self::assertSame(['x' => $expected], $result->value);
         self::assertTrue($result->isRecovered);
         self::assertSame($expectedActionType, $result->repairs[0]->type);
-    }
-
-    public function testItReturnsIssueForInvalidStreamInput(): void
-    {
-        $decoder = DecoderFactory::create();
-
-        $result = $decoder->decodeStream('not-a-stream');
-
-        self::assertNull($result->value);
-        self::assertSame(DecodeIssueType::InvalidStream, $result->issues[0]->type);
     }
 
     public function testDecodeResultCanBeSerializedToArray(): void

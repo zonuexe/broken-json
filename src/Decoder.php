@@ -8,10 +8,10 @@ use Generator;
 use JsonException;
 use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
+use function assert;
 use function fclose;
 use function fopen;
 use function fread;
-use function get_resource_type;
 use function is_resource;
 use function json_decode;
 use function max;
@@ -49,18 +49,9 @@ final readonly class Decoder
     /**
      * @param resource $stream
      */
-    public function decodeStream(mixed $stream): DecodeResult
+    public function decodeStream($stream): DecodeResult
     {
-        if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
-            return new DecodeResult(
-                value: null,
-                isRecovered: false,
-                isPartial: true,
-                repairs: [],
-                issues: [new DecodeIssue(DecodeIssueType::InvalidStream, 'The given stream is not a valid stream resource.')],
-                repairedJson: '',
-            );
-        }
+        assert(is_resource($stream));
 
         $chunks = static function () use ($stream): Generator {
             while (true) {

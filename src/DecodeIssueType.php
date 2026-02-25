@@ -6,7 +6,6 @@ namespace zonuexe\BrokenJson;
 
 enum DecodeIssueType: string
 {
-    case InvalidStream = 'invalid_stream';
     case FileOpenFailed = 'file_open_failed';
     case JsonDecodeFailed = 'json_decode_failed';
     case InvalidUnicodeEscape = 'invalid_unicode_escape';
