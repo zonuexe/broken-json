@@ -1,0 +1,11 @@
+parameters:
+	level: max
+	phpVersion: 80400
+	paths:
+		- src/
+		- tests/
+	bootstrapFiles:
+		- vendor-bin/phpunit/vendor/autoload.php
+		- vendor/symplify/easy-coding-standard/vendor/autoload.php
+includes:
+	- vendor/phpstan/phpstan/conf/bleedingEdge.neon

@@ -1,0 +1,35 @@
+{
+    "name": "zonuexe/broken-json",
+    "description": "",
+    "license": "MPL-2.0",
+    "require": {
+        "php": ">= 8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "zonuexe\\BrokenJson\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "zonuexe\\BrokenJson\\Tests\\": "tests"
+        }
+    },
+    "require-dev": {
+        "bamarni/composer-bin-plugin": "^1.9",
+        "phpstan/phpstan": "^2.1",
+        "symplify/easy-coding-standard": "^13.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "bamarni/composer-bin-plugin": true
+        },
+        "sort-packages": true
+    },
+    "extra": {
+        "bamarni-bin": {
+            "bin-links": false,
+            "forward-command": true
+        }
+    }
+}
