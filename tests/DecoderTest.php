@@ -127,6 +127,18 @@ final class DecoderTest extends TestCase
         self::assertSame(DecodeIssueType::InvalidStream, $result->issues[0]->type);
     }
 
+    public function testDecodeResultCanBeSerializedToArray(): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeString('{"x":"abc\\');
+        $serialized = $result->toArray();
+
+        self::assertSame(['x' => 'abc\\'], $serialized['value']);
+        self::assertTrue($serialized['isRecovered']);
+        self::assertSame('complete_escape', $serialized['repairs'][0]['type']);
+    }
+
     /**
      * @phpstan-return iterable<list{string, string, RepairActionType}>
      */
