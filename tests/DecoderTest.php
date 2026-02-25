@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace zonuexe\BrokenJson\Tests;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use zonuexe\BrokenJson\DecodeIssueType;
 use zonuexe\BrokenJson\DecodeOptions;
 use zonuexe\BrokenJson\Decoder;
 use zonuexe\BrokenJson\DecoderFactory;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
+use zonuexe\BrokenJson\RepairActionType;
 use function file_put_contents;
 use function fopen;
 use function fwrite;
@@ -31,7 +34,10 @@ final class DecoderTest extends TestCase
         $result = $decoder->decodeString($json);
 
         self::assertTrue($result->isRecovered);
-        self::assertSame('huge.........text', $result->value['foo']['bar']['buz'][1]);
+        self::assertSame(
+            ['foo' => ['name' => 'foo', 'bar' => ['buz' => ['text data', 'huge.........text']]]],
+            $result->value,
+        );
     }
 
     public function testItInsertsNullForDanglingColonInBalancedPolicy(): void
@@ -97,5 +103,36 @@ final class DecoderTest extends TestCase
 
         self::assertSame(['x' => 'y'], $value);
         self::assertNotSame([], $repairs);
+    }
+
+    #[DataProvider('provideStringRepairCases')]
+    public function testItRepairsTruncatedStringCases(string $input, string $expected, RepairActionType $expectedActionType): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeString($input);
+
+        self::assertSame(['x' => $expected], $result->value);
+        self::assertTrue($result->isRecovered);
+        self::assertSame($expectedActionType, $result->repairs[0]->type);
+    }
+
+    public function testItReturnsIssueForInvalidStreamInput(): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeStream('not-a-stream');
+
+        self::assertNull($result->value);
+        self::assertSame(DecodeIssueType::InvalidStream, $result->issues[0]->type);
+    }
+
+    /**
+     * @phpstan-return iterable<list{string, string, RepairActionType}>
+     */
+    public static function provideStringRepairCases(): iterable
+    {
+        yield ['{"x":"abc\\', 'abc\\', RepairActionType::CompleteEscape];
+        yield ['{"x":"\\u12', "\u{1200}", RepairActionType::CompleteUnicodeEscape];
     }
 }
