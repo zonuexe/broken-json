@@ -16,6 +16,8 @@ use zonuexe\BrokenJson\RepairActionType;
 use function file_put_contents;
 use function fopen;
 use function fwrite;
+use function json_decode;
+use function json_encode;
 use function rewind;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -32,12 +34,14 @@ final class DecoderTest extends TestCase
         $decoder = DecoderFactory::create();
 
         $result = $decoder->decodeString($json);
+        $expected = json_decode(
+            '{"foo":{"name":"foo","bar":{"buz":["text data","huge.........text"]}}}',
+            associative: true,
+            flags: JSON_THROW_ON_ERROR,
+        );
 
         self::assertTrue($result->isRecovered);
-        self::assertSame(
-            ['foo' => ['name' => 'foo', 'bar' => ['buz' => ['text data', 'huge.........text']]]],
-            $result->value,
-        );
+        self::assertSame($expected, $result->value);
     }
 
     public function testItInsertsNullForDanglingColonInBalancedPolicy(): void
