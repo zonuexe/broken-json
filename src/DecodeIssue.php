@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace zonuexe\BrokenJson;
 
-final readonly class DecodeIssue
+use JsonSerializable;
+
+final readonly class DecodeIssue implements JsonSerializable
 {
     /**
      * @param int<-1, max> $position
@@ -26,5 +28,13 @@ final readonly class DecodeIssue
             'message' => $this->message,
             'position' => $this->position,
         ];
+    }
+
+    /**
+     * @phpstan-return array{type: string, message: string, position: int<-1, max>}
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }
