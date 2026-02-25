@@ -86,7 +86,7 @@ final class DecoderTest extends TestCase
 
     public function testItCanDecodeFromFile(): void
     {
-        $path = tempnam(sys_get_temp_dir().DIRECTORY_SEPARATOR, 'broken-json-');
+        $path = tempnam(sys_get_temp_dir() . DIRECTORY_SEPARATOR, 'broken-json-');
         self::assertNotFalse($path);
         file_put_contents($path, '[10, 20, 30');
 
