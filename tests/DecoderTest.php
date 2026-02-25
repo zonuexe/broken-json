@@ -8,12 +8,15 @@ use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use zonuexe\BrokenJson\DecodeIssue;
 use zonuexe\BrokenJson\DecodeIssueType;
 use zonuexe\BrokenJson\DecodeOptions;
 use zonuexe\BrokenJson\Decoder;
 use zonuexe\BrokenJson\DecodeResult;
 use zonuexe\BrokenJson\DecoderFactory;
+use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
+use zonuexe\BrokenJson\RepairAction;
 use zonuexe\BrokenJson\RepairActionType;
 use function array_map;
 use function file_put_contents;
@@ -27,9 +30,16 @@ use function sys_get_temp_dir;
 use function tempnam;
 use const DIRECTORY_SEPARATOR;
 
-#[CoversClass(DecoderFactory::class)]
+#[CoversClass(DecodeIssue::class)]
+#[CoversClass(DecodeIssueType::class)]
+#[CoversClass(DecodeOptions::class)]
+#[CoversClass(DecodeResult::class)]
 #[CoversClass(Decoder::class)]
+#[CoversClass(DecoderFactory::class)]
+#[CoversClass(RepairAction::class)]
+#[CoversClass(RepairActionType::class)]
 #[CoversClass(RepairingScanner::class)]
+#[CoversClass(Utf8Sanitizer::class)]
 final class DecoderTest extends TestCase
 {
     public function testItRecoversTruncatedNestedJson(): void
