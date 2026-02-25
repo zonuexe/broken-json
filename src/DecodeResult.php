@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace zonuexe\BrokenJson;
 
+use JsonSerializable;
 use function array_map;
 
-final readonly class DecodeResult
+final readonly class DecodeResult implements JsonSerializable
 {
     /**
      * @param list<RepairAction> $repairs
@@ -48,5 +49,20 @@ final readonly class DecodeResult
                 $this->issues,
             ),
         ];
+    }
+
+    /**
+     * @phpstan-return array{
+     *     value: mixed,
+     *     isRecovered: bool,
+     *     isPartial: bool,
+     *     repairedJson: string,
+     *     repairs: list<array{type: string, position: 0|positive-int, detail: string}>,
+     *     issues: list<array{type: string, message: string, position: int<-1, max>}>
+     * }
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

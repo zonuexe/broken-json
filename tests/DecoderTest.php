@@ -138,6 +138,17 @@ final class DecoderTest extends TestCase
         self::assertSame('complete_escape', $serialized['repairs'][0]['type']);
     }
 
+    public function testDecodeResultIsJsonSerializable(): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeString('{"x":"abc\\');
+        $json = json_encode($result, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('"isRecovered":true', $json);
+        self::assertStringContainsString('"type":"complete_escape"', $json);
+    }
+
     /**
      * @phpstan-return iterable<list{string, string, RepairActionType}>
      */
