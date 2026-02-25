@@ -35,7 +35,15 @@ final readonly class Decoder
 
     public function decodeString(string $json): DecodeResult
     {
-        return $this->decodeIterable([$json]);
+        return $this->decodeChunks([$json]);
+    }
+
+    /**
+     * @param iterable<string> $chunks
+     */
+    public function decodeChunks(iterable $chunks): DecodeResult
+    {
+        return $this->decodeIterable($chunks);
     }
 
     /**
