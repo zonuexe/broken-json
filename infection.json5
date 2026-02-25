@@ -8,6 +8,7 @@
     "phpUnit": {
         "customPath": "vendor-bin/phpunit/vendor/bin/phpunit"
     },
+    "initialTestsPhpOptions": "-d xdebug.mode=coverage",
     "mutators": {
         "@default": true
     },
