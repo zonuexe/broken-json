@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace zonuexe\BrokenJson\Tests;
 
+use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -95,6 +96,15 @@ final class DecoderTest extends TestCase
         self::assertSame([10, 20, 30], $result->value);
     }
 
+    public function testItCanDecodeFromChunks(): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeChunks($this->provideChunks('{"x":"ab', 'c\\'));
+
+        self::assertSame(['x' => 'abc\\'], $result->value);
+    }
+
     public function testLegacyDecodeReturnsTuple(): void
     {
         $decoder = DecoderFactory::create();
@@ -146,5 +156,15 @@ final class DecoderTest extends TestCase
     {
         yield ['{"x":"abc\\', 'abc\\', RepairActionType::CompleteEscape];
         yield ['{"x":"\\u12', "\u{1200}", RepairActionType::CompleteUnicodeEscape];
+    }
+
+    /**
+     * @phpstan-return Generator<string>
+     */
+    private function provideChunks(string ...$chunks): Generator
+    {
+        foreach ($chunks as $chunk) {
+            yield $chunk;
+        }
     }
 }
