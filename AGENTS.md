@@ -19,3 +19,6 @@
 - Example: `use function strpos;`
 - For tuple-like PHPDoc arrays, prefer `list{...}` over `array{0:..., 1:...}`.
 - Exception: use `array{...}` when optional tuple elements are needed (for example `array{0:mixed, 1:list<RepairAction>, 2?:mixed}`).
+- Aggregate similar test cases with Data Providers.
+- Data Providers must use `yield`, declare `: iterable`, and include a `@phpstan-return` type.
+- Use `list{...}` for simple/small cases; use associative array shapes for larger/complex cases.
