@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace zonuexe\BrokenJson\Tests;
 
+use AssertionError;
 use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,8 +25,10 @@ use function fopen;
 use function fwrite;
 use function json_decode;
 use function json_encode;
+use function preg_match;
 use function property_exists;
 use function rewind;
+use function str_repeat;
 use function sys_get_temp_dir;
 use function tempnam;
 use const DIRECTORY_SEPARATOR;
@@ -90,6 +93,40 @@ final class DecoderTest extends TestCase
         self::assertNotSame([], $result->issues);
     }
 
+    public function testConservativeDanglingColonProducesExpectedRepairedJson(): void
+    {
+        $decoder = DecoderFactory::create(new DecodeOptions(repairPolicy: DecodeOptions::POLICY_CONSERVATIVE));
+
+        $result = $decoder->decodeString('{"foo":');
+
+        self::assertSame('{"foo"}', $result->repairedJson);
+    }
+
+    public function testBalancedRepairsCommaThenColonInSameTailPass(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"a":,');
+
+        self::assertSame(['a' => null], $result->value);
+        self::assertSame('{"a": null}', $result->repairedJson);
+    }
+
+    public function testTrailingCommaRemovalKeepsTrailingWhitespaceBeforeContainerClose(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"a":1,   ');
+
+        self::assertSame(['a' => 1], $result->value);
+        self::assertSame('{"a":1   }', $result->repairedJson);
+    }
+
+    public function testConservativeDanglingColonRemovalKeepsTrailingWhitespace(): void
+    {
+        $decoder = DecoderFactory::create(new DecodeOptions(repairPolicy: DecodeOptions::POLICY_CONSERVATIVE));
+
+        $result = $decoder->decodeString('{"a":   ');
+
+        self::assertSame('{"a"   }', $result->repairedJson);
+    }
+
     public function testItRemovesTrailingComma(): void
     {
         $decoder = DecoderFactory::create();
@@ -97,6 +134,17 @@ final class DecoderTest extends TestCase
         $result = $decoder->decodeString('[1, 2,');
 
         self::assertSame([1, 2], $result->value);
+    }
+
+    public function testSingleCommaInputIsRepairedToEmptyString(): void
+    {
+        $decoder = DecoderFactory::create();
+
+        $result = $decoder->decodeString(',');
+
+        self::assertSame('', $result->repairedJson);
+        self::assertSame('remove_trailing_comma', $result->repairs[0]->type->value);
+        self::assertSame(0, $result->repairs[0]->position);
     }
 
     public function testItCanDecodeFromStream(): void
@@ -110,6 +158,25 @@ final class DecoderTest extends TestCase
         $result = $decoder->decodeStream($stream);
 
         self::assertSame(['a' => 'b'], $result->value);
+    }
+
+    public function testDecodeStreamUtf8BoundaryAt8192ProducesDecodeFailure(): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        self::assertIsResource($stream);
+        $payload = '{"x":"' . str_repeat('a', 8185) . "\xC3\xA9" . '"}';
+        fwrite($stream, $payload);
+        rewind($stream);
+
+        $result = DecoderFactory::create()->decodeStream($stream);
+        $issueTypes = array_map(
+            static fn ($decodeIssue): DecodeIssueType => $decodeIssue->type,
+            $result->issues,
+        );
+
+        self::assertNull($result->value);
+        self::assertTrue($result->isPartial);
+        self::assertContains(DecodeIssueType::JsonDecodeFailed, $issueTypes);
     }
 
     public function testItCanDecodeFromFile(): void
@@ -414,6 +481,113 @@ final class DecoderTest extends TestCase
         self::assertSame(-1, $serialized['issues'][0]['position']);
     }
 
+    public function testDecodeOptionsDefaultsAreStable(): void
+    {
+        $options = new DecodeOptions();
+
+        self::assertSame(DecodeOptions::POLICY_BALANCED, $options->repairPolicy);
+        self::assertTrue($options->assoc);
+        self::assertSame(512, $options->depth);
+        self::assertSame(0, $options->decodeFlags);
+    }
+
+    public function testDecodeOptionsDepthMustBePositive(): void
+    {
+        $this->expectException(AssertionError::class);
+
+        new DecodeOptions(depth: 0);
+    }
+
+    public function testEmptyInputIsNotRecovered(): void
+    {
+        $result = DecoderFactory::create()->decodeString('');
+
+        self::assertFalse($result->isRecovered);
+        self::assertTrue($result->isPartial);
+        self::assertSame([], $result->repairs);
+    }
+
+    public function testDepthOneCanFailForNestedJson(): void
+    {
+        $decoder = DecoderFactory::create(new DecodeOptions(depth: 1));
+
+        $result = $decoder->decodeString('{}');
+
+        self::assertNull($result->value);
+        self::assertSame(DecodeIssueType::JsonDecodeFailed, $result->issues[0]->type);
+    }
+
+    #[DataProvider('provideUtf8SanitizerCases')]
+    public function testUtf8SanitizerBehavior(string $input, string $expected): void
+    {
+        $sanitized = Utf8Sanitizer::sanitize($input);
+
+        self::assertSame($expected, $sanitized);
+        self::assertSame(1, preg_match('//u', $sanitized));
+    }
+
+    public function testRepairActionPositionsForDanglingEscapeAreExact(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"x":"abc\\');
+        $positionsByType = array_map(
+            static fn ($repairAction): int => $repairAction->position,
+            $result->repairs,
+        );
+
+        self::assertSame([10, 11, 12], $positionsByType);
+    }
+
+    public function testRepairActionPositionsForIncompleteUnicodeAreExact(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"x":"\u12');
+        $positionsByType = array_map(
+            static fn ($repairAction): int => $repairAction->position,
+            $result->repairs,
+        );
+
+        self::assertSame([11, 12, 13], $positionsByType);
+    }
+
+    public function testInsertMissingValuePositionIsExact(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"foo":');
+        $positionsByType = [];
+        foreach ($result->repairs as $repairAction) {
+            $positionsByType[$repairAction->type->value] = $repairAction->position;
+        }
+
+        self::assertSame(11, $positionsByType['insert_missing_value']);
+    }
+
+    public function testInvalidUnicodeIssuePositionIsExact(): void
+    {
+        $result = DecoderFactory::create()->decodeString('{"x":"\u12g"}');
+        $position = $this->findIssuePosition($result, DecodeIssueType::InvalidUnicodeEscape);
+
+        self::assertSame(10, $position);
+    }
+
+    public function testUnexpectedCloserDoesNotAlsoCreateMismatchedCloserIssue(): void
+    {
+        $result = DecoderFactory::create()->decodeString('}');
+        $issueTypes = array_map(
+            static fn ($decodeIssue): DecodeIssueType => $decodeIssue->type,
+            $result->issues,
+        );
+
+        self::assertContains(DecodeIssueType::UnexpectedCloser, $issueTypes);
+        self::assertNotContains(DecodeIssueType::MismatchedCloser, $issueTypes);
+    }
+
+    public function testUnexpectedCloserMarksResultAsPartialWithoutRepairs(): void
+    {
+        $result = DecoderFactory::create()->decodeString('}');
+
+        self::assertFalse($result->isRecovered);
+        self::assertTrue($result->isPartial);
+        self::assertSame([], $result->repairs);
+    }
+
     /**
      * @phpstan-return iterable<list{string, string, RepairActionType}>
      */
@@ -480,6 +654,15 @@ final class DecoderTest extends TestCase
         yield ['}', DecodeIssueType::UnexpectedCloser, 0];
         yield ['{]', DecodeIssueType::MismatchedCloser, 1];
         yield ['', DecodeIssueType::JsonDecodeFailed, -1];
+    }
+
+    /**
+     * @phpstan-return iterable<list{string, string}>
+     */
+    public static function provideUtf8SanitizerCases(): iterable
+    {
+        yield ['hello', 'hello'];
+        yield ["\xC3\x28", '('];
     }
 
     #[DataProvider('provideIssuePositionCases')]
