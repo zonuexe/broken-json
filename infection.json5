@@ -13,7 +13,9 @@
     "initialTestsPhpOptions": "-d xdebug.mode=coverage",
     "mutators": {
         "global-ignore": [
-            "zonuexe\\BrokenJson\\Internal\\Utf8Sanitizer::sanitize::16"
+            "zonuexe\\BrokenJson\\DecoderFactory::createUtf8Sanitizer::25",
+            "zonuexe\\BrokenJson\\Internal\\IconvUtf8Sanitizer::sanitize::15",
+            "zonuexe\\BrokenJson\\Internal\\MbstringUtf8Sanitizer::sanitize::15"
         ],
         "@default": true
     },

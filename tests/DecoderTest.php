@@ -576,6 +576,7 @@ final class DecoderTest extends TestCase
     public static function provideDecodeStreamChunkCountCases(): iterable
     {
         yield '16383 bytes => 2 chunks' => [16376, 2];
+        yield '16385 bytes => 3 chunks' => [16377, 3];
         yield '16386 bytes => 3 chunks' => [16379, 3];
     }
 
