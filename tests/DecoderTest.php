@@ -61,16 +61,6 @@ final class DecoderTest extends TestCase
         self::assertSame($expected, $result->value);
     }
 
-    public function testItInsertsNullForDanglingColonInBalancedPolicy(): void
-    {
-        $decoder = DecoderFactory::create(new DecodeOptions());
-
-        $result = $decoder->decodeString('{"foo":');
-
-        self::assertSame(['foo' => null], $result->value);
-        self::assertTrue($result->isRecovered);
-    }
-
     #[DataProvider('providePoliciesThatInsertNull')]
     public function testPolicyInsertsNullForDanglingColon(string $policy): void
     {
@@ -93,38 +83,18 @@ final class DecoderTest extends TestCase
         self::assertNotSame([], $result->issues);
     }
 
-    public function testConservativeDanglingColonProducesExpectedRepairedJson(): void
-    {
-        $decoder = DecoderFactory::create(new DecodeOptions(repairPolicy: DecodeOptions::POLICY_CONSERVATIVE));
+    #[DataProvider('provideTailRepairCases')]
+    public function testTailRepairCase(
+        string $input,
+        string $policy,
+        mixed $expectedValue,
+        string $expectedRepairedJson,
+    ): void {
+        $decoder = DecoderFactory::create(new DecodeOptions(repairPolicy: $policy));
+        $result = $decoder->decodeString($input);
 
-        $result = $decoder->decodeString('{"foo":');
-
-        self::assertSame('{"foo"}', $result->repairedJson);
-    }
-
-    public function testBalancedRepairsCommaThenColonInSameTailPass(): void
-    {
-        $result = DecoderFactory::create()->decodeString('{"a":,');
-
-        self::assertSame(['a' => null], $result->value);
-        self::assertSame('{"a": null}', $result->repairedJson);
-    }
-
-    public function testTrailingCommaRemovalKeepsTrailingWhitespaceBeforeContainerClose(): void
-    {
-        $result = DecoderFactory::create()->decodeString('{"a":1,   ');
-
-        self::assertSame(['a' => 1], $result->value);
-        self::assertSame('{"a":1   }', $result->repairedJson);
-    }
-
-    public function testConservativeDanglingColonRemovalKeepsTrailingWhitespace(): void
-    {
-        $decoder = DecoderFactory::create(new DecodeOptions(repairPolicy: DecodeOptions::POLICY_CONSERVATIVE));
-
-        $result = $decoder->decodeString('{"a":   ');
-
-        self::assertSame('{"a"   }', $result->repairedJson);
+        self::assertSame($expectedValue, $result->value);
+        self::assertSame($expectedRepairedJson, $result->repairedJson);
     }
 
     public function testItRemovesTrailingComma(): void
@@ -191,7 +161,7 @@ final class DecoderTest extends TestCase
         self::assertSame([10, 20, 30], $result->value);
     }
 
-    public function testItReturnsFileOpenFailedIssueWhenFileCannotBeOpened(): void
+    public function testFileOpenFailureHasExpectedResultShape(): void
     {
         $decoder = DecoderFactory::create();
 
@@ -199,14 +169,6 @@ final class DecoderTest extends TestCase
 
         self::assertNull($result->value);
         self::assertSame(DecodeIssueType::FileOpenFailed, $result->issues[0]->type);
-    }
-
-    public function testFileOpenFailureSetsExpectedFlagsAndPayload(): void
-    {
-        $decoder = DecoderFactory::create();
-
-        $result = $decoder->decodeFile('/path/that/does/not/exist.json');
-
         self::assertFalse($result->isRecovered);
         self::assertTrue($result->isPartial);
         self::assertSame('', $result->repairedJson);
@@ -406,25 +368,16 @@ final class DecoderTest extends TestCase
         self::assertSame('complete_escape', $serialized['repairs'][0]['type']);
     }
 
-    public function testDecodeResultIsJsonSerializable(): void
+    #[DataProvider('provideJsonSerializationContainsCases')]
+    public function testJsonSerializationContainsExpectedFragments(string $input, array $expectedFragments): void
     {
         $decoder = DecoderFactory::create();
-
-        $result = $decoder->decodeString('{"x":"abc\\');
+        $result = $decoder->decodeString($input);
         $json = json_encode($result, JSON_THROW_ON_ERROR);
 
-        self::assertStringContainsString('"isRecovered":true', $json);
-        self::assertStringContainsString('"type":"complete_escape"', $json);
-    }
-
-    public function testJsonSerializationContainsDecodeFailedIssueForEmptyInput(): void
-    {
-        $decoder = DecoderFactory::create();
-
-        $result = $decoder->decodeString('');
-        $json = json_encode($result, JSON_THROW_ON_ERROR);
-
-        self::assertStringContainsString('"type":"json_decode_failed"', $json);
+        foreach ($expectedFragments as $expectedFragment) {
+            self::assertStringContainsString($expectedFragment, $json);
+        }
     }
 
     public function testToArrayAndJsonSerializeAreEquivalent(): void
@@ -526,37 +479,19 @@ final class DecoderTest extends TestCase
         self::assertSame(1, preg_match('//u', $sanitized));
     }
 
-    public function testRepairActionPositionsForDanglingEscapeAreExact(): void
+    /**
+     * @phpstan-param array<value-of<RepairActionType>, 0|positive-int> $expectedPositionsByType
+     */
+    #[DataProvider('provideRepairPositionCases')]
+    public function testRepairActionPositionsAreExact(string $input, array $expectedPositionsByType): void
     {
-        $result = DecoderFactory::create()->decodeString('{"x":"abc\\');
-        $positionsByType = array_map(
-            static fn ($repairAction): int => $repairAction->position,
-            $result->repairs,
-        );
-
-        self::assertSame([10, 11, 12], $positionsByType);
-    }
-
-    public function testRepairActionPositionsForIncompleteUnicodeAreExact(): void
-    {
-        $result = DecoderFactory::create()->decodeString('{"x":"\u12');
-        $positionsByType = array_map(
-            static fn ($repairAction): int => $repairAction->position,
-            $result->repairs,
-        );
-
-        self::assertSame([11, 12, 13], $positionsByType);
-    }
-
-    public function testInsertMissingValuePositionIsExact(): void
-    {
-        $result = DecoderFactory::create()->decodeString('{"foo":');
-        $positionsByType = [];
+        $result = DecoderFactory::create()->decodeString($input);
+        $actualPositionsByType = [];
         foreach ($result->repairs as $repairAction) {
-            $positionsByType[$repairAction->type->value] = $repairAction->position;
+            $actualPositionsByType[$repairAction->type->value] = $repairAction->position;
         }
 
-        self::assertSame(11, $positionsByType['insert_missing_value']);
+        self::assertSame($expectedPositionsByType, $actualPositionsByType);
     }
 
     public function testInvalidUnicodeIssuePositionIsExact(): void
@@ -567,7 +502,7 @@ final class DecoderTest extends TestCase
         self::assertSame(10, $position);
     }
 
-    public function testUnexpectedCloserDoesNotAlsoCreateMismatchedCloserIssue(): void
+    public function testUnexpectedCloserHasExpectedIssuesAndFlags(): void
     {
         $result = DecoderFactory::create()->decodeString('}');
         $issueTypes = array_map(
@@ -577,12 +512,6 @@ final class DecoderTest extends TestCase
 
         self::assertContains(DecodeIssueType::UnexpectedCloser, $issueTypes);
         self::assertNotContains(DecodeIssueType::MismatchedCloser, $issueTypes);
-    }
-
-    public function testUnexpectedCloserMarksResultAsPartialWithoutRepairs(): void
-    {
-        $result = DecoderFactory::create()->decodeString('}');
-
         self::assertFalse($result->isRecovered);
         self::assertTrue($result->isPartial);
         self::assertSame([], $result->repairs);
@@ -612,8 +541,8 @@ final class DecoderTest extends TestCase
      */
     public static function providePoliciesThatInsertNull(): iterable
     {
-        yield [DecodeOptions::POLICY_BALANCED];
-        yield [DecodeOptions::POLICY_AGGRESSIVE];
+        yield 'balanced-policy' => [DecodeOptions::POLICY_BALANCED];
+        yield 'aggressive-policy' => [DecodeOptions::POLICY_AGGRESSIVE];
     }
 
     /**
@@ -663,6 +592,82 @@ final class DecoderTest extends TestCase
     {
         yield ['hello', 'hello'];
         yield ["\xC3\x28", '('];
+    }
+
+    /**
+     * @phpstan-return iterable<array{input: string, expectedFragments: list<string>}>
+     */
+    public static function provideJsonSerializationContainsCases(): iterable
+    {
+        yield 'recovered-payload' => [
+            'input' => '{"x":"abc\\',
+            'expectedFragments' => ['"isRecovered":true', '"type":"complete_escape"'],
+        ];
+        yield 'decode-failed-payload' => [
+            'input' => '',
+            'expectedFragments' => ['"type":"json_decode_failed"'],
+        ];
+    }
+
+    /**
+     * @phpstan-return iterable<array{input: string, policy: string, expectedValue: mixed, expectedRepairedJson: string}>
+     */
+    public static function provideTailRepairCases(): iterable
+    {
+        yield 'conservative-removes-dangling-colon' => [
+            'input' => '{"foo":',
+            'policy' => DecodeOptions::POLICY_CONSERVATIVE,
+            'expectedValue' => null,
+            'expectedRepairedJson' => '{"foo"}',
+        ];
+        yield 'balanced-recovers-comma-then-colon' => [
+            'input' => '{"a":,',
+            'policy' => DecodeOptions::POLICY_BALANCED,
+            'expectedValue' => ['a' => null],
+            'expectedRepairedJson' => '{"a": null}',
+        ];
+        yield 'balanced-keeps-whitespace-when-trimming-trailing-comma' => [
+            'input' => '{"a":1,   ',
+            'policy' => DecodeOptions::POLICY_BALANCED,
+            'expectedValue' => ['a' => 1],
+            'expectedRepairedJson' => '{"a":1   }',
+        ];
+        yield 'conservative-keeps-whitespace-when-removing-colon' => [
+            'input' => '{"a":   ',
+            'policy' => DecodeOptions::POLICY_CONSERVATIVE,
+            'expectedValue' => null,
+            'expectedRepairedJson' => '{"a"   }',
+        ];
+    }
+
+    /**
+     * @phpstan-return iterable<array{input: string, expectedPositionsByType: array<value-of<RepairActionType>, 0|positive-int>}>
+     */
+    public static function provideRepairPositionCases(): iterable
+    {
+        yield 'dangling-escape' => [
+            'input' => '{"x":"abc\\',
+            'expectedPositionsByType' => [
+                'complete_escape' => 10,
+                'close_string' => 11,
+                'close_container' => 12,
+            ],
+        ];
+        yield 'incomplete-unicode' => [
+            'input' => '{"x":"\u12',
+            'expectedPositionsByType' => [
+                'complete_unicode_escape' => 11,
+                'close_string' => 12,
+                'close_container' => 13,
+            ],
+        ];
+        yield 'dangling-colon-inserts-null' => [
+            'input' => '{"foo":',
+            'expectedPositionsByType' => [
+                'insert_missing_value' => 11,
+                'close_container' => 12,
+            ],
+        ];
     }
 
     #[DataProvider('provideIssuePositionCases')]
