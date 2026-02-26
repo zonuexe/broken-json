@@ -4,7 +4,7 @@ INFECTION := vendor-bin/infection/vendor/bin/infection
 FUZZER := vendor-bin/fuzzer/vendor/bin/php-fuzzer
 PHPSTAN := ./vendor/bin/phpstan
 PHP_COVERAGE := php -d xdebug.mode=coverage
-INFECTION_DIFF_BASE := master
+INFECTION_DIFF_BASE ?= master
 FUZZ_MAX_RUNS ?= 5000
 FUZZ_TIMEOUT ?= 5
 FUZZ_WORKDIR := .tmp-fuzz/corpus

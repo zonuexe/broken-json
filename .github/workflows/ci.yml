@@ -43,6 +43,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      INFECTION_DIFF_BASE: origin/${{ github.event.repository.default_branch }}
     strategy:
       fail-fast: false
       matrix:
