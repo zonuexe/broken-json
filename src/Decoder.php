@@ -20,6 +20,7 @@ final readonly class Decoder
 {
     public function __construct(
         private DecodeOptions $options,
+        private Utf8Sanitizer $utf8Sanitizer,
     ) {
     }
 
@@ -95,7 +96,7 @@ final readonly class Decoder
     {
         $scanner = new RepairingScanner($this->options);
         foreach ($chunks as $chunk) {
-            $scanner->push(Utf8Sanitizer::sanitize($chunk));
+            $scanner->push($this->utf8Sanitizer->sanitize($chunk));
         }
 
         $scanResult = $scanner->finalize();

@@ -31,7 +31,7 @@ namespace zonuexe\BrokenJson;
 
 final class DecoderFactory
 {
-    public static function create(?DecodeOptions $options = null): Decoder;
+    public static function create(?DecodeOptions $options = null, ?Utf8Sanitizer $utf8Sanitizer = null): Decoder;
 }
 
 final class Decoder
@@ -101,7 +101,9 @@ final class DecodeResult
 - `src/Decoder.php`
 - `src/Repair/RepairingScanner.php`（状態機械）
 - `src/Repair/RepairPlan.php`（補間操作の記録）
-- `src/Internal/Utf8Sanitizer.php`
+- `src/Internal/Utf8Sanitizer.php`（interface）
+- `src/Internal/MbstringUtf8Sanitizer.php`
+- `src/Internal/IconvUtf8Sanitizer.php`
 
 ## 10. テスト戦略
 - 例ベース:

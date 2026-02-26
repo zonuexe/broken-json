@@ -36,11 +36,39 @@ $issues = $result->issues;
 
 ## API
 
-- `decodeString(string $json): DecodeResult`
-- `decodeChunks(iterable<string> $chunks): DecodeResult`
-- `decodeStream(resource $stream): DecodeResult`
-- `decodeFile(string $path): DecodeResult`
-- `decode(string $json): list{mixed, list<RepairAction>}` (legacy compatibility)
+- `DecoderFactory::create(?DecodeOptions $options = null, ?Utf8Sanitizer $utf8Sanitizer = null): Decoder`
+- `Decoder::decodeString(string $json): DecodeResult`
+- `Decoder::decodeChunks(iterable<string> $chunks): DecodeResult`
+- `Decoder::decodeStream(resource $stream): DecodeResult`
+- `Decoder::decodeFile(string $path): DecodeResult`
+- `Decoder::decode(string $json): list{mixed, list<RepairAction>}` (legacy compatibility)
+
+## UTF-8 Sanitization
+
+`DecoderFactory` auto-selects a UTF-8 sanitizer backend in this order:
+
+1. `MbstringUtf8Sanitizer` (`mb_scrub`)
+2. `IconvUtf8Sanitizer` (`iconv`)
+
+If neither backend is available, factory creation fails with `LogicException`.
+
+You can also inject your own sanitizer implementation:
+
+```php
+<?php
+
+use zonuexe\BrokenJson\DecoderFactory;
+use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
+
+$sanitizer = new class () implements Utf8Sanitizer {
+    public function sanitize(string $value): string
+    {
+        return $value;
+    }
+};
+
+$decoder = DecoderFactory::create(utf8Sanitizer: $sanitizer);
+```
 
 ## Result Object
 
