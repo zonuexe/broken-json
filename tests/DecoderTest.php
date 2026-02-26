@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace zonuexe\BrokenJson\Tests;
 
-use AssertionError;
 use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use ValueError;
 use zonuexe\BrokenJson\DecodeIssue;
 use zonuexe\BrokenJson\DecodeIssueType;
 use zonuexe\BrokenJson\DecodeOptions;
@@ -356,7 +356,7 @@ final class DecoderTest extends TestCase
 
     public function testDecodeOptionsDepthMustBePositive(): void
     {
-        $this->expectException(AssertionError::class);
+        $this->expectException(ValueError::class);
 
         new DecodeOptions(depth: 0);
     }
