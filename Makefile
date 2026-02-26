@@ -24,10 +24,10 @@ phpunit:
 	$(PHPUNIT)
 
 infection:
-	XDEBUG_MODE=coverage $(PHP_COVERAGE) $(INFECTION) --git-diff-filter=AM --git-diff-base=$(INFECTION_DIFF_BASE)
+	XDEBUG_MODE=coverage $(PHP_COVERAGE) $(INFECTION) --git-diff-filter=AM --git-diff-base=$(INFECTION_DIFF_BASE) --test-framework-options="--do-not-fail-on-warning --do-not-fail-on-phpunit-warning"
 
 infection-all:
-	XDEBUG_MODE=coverage $(PHP_COVERAGE) $(INFECTION)
+	XDEBUG_MODE=coverage $(PHP_COVERAGE) $(INFECTION) --test-framework-options="--do-not-fail-on-warning --do-not-fail-on-phpunit-warning"
 
 fuzz:
 	rm -rf $(FUZZ_WORKDIR)
