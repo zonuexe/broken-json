@@ -8,13 +8,17 @@
 
 ## QA
 - Install dependencies: `make install`
-- Format check: `make formatter`
+- Format check: `make fmt`
 - Static analysis: `make phpstan`
 - Unit tests: `make phpunit`
-- Full local check: `make qa`
-- Run only when needed: `make formatter-fix`, `make infection`
+- Default test run: `make test` (includes Infection on diff from `master`)
+- Full mutation run: `make test-all` (includes full Infection)
+- Full local check: `make qa` (uses diff-based Infection)
+- Full local check (full Infection): `make qa-all`
+- Run only when needed: `make fmt-fix`, `make infection`, `make infection-all`
 
 ## Coding Style
+- Always run `make fmt-fix` immediately after code edits.
 - Import PHP global functions with `use function`.
 - Example: `use function strpos;`
 - For tuple-like PHPDoc arrays, prefer `list{...}` over `array{0:..., 1:...}`.
