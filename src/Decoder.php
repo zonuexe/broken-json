@@ -9,6 +9,7 @@ use JsonException;
 use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
 use function assert;
+use function count;
 use function fclose;
 use function fopen;
 use function fread;
@@ -115,8 +116,8 @@ final readonly class Decoder
 
             return new DecodeResult(
                 value: $value,
-                isRecovered: $repairs !== [],
-                isPartial: $repairs !== [] || $issues !== [],
+                isRecovered: count($repairs) !== 0,
+                isPartial: count($repairs) !== 0 || count($issues) !== 0,
                 repairs: $repairs,
                 issues: $issues,
                 repairedJson: $repairedJson,
@@ -129,7 +130,7 @@ final readonly class Decoder
 
             return new DecodeResult(
                 value: null,
-                isRecovered: $repairs !== [],
+                isRecovered: count($repairs) !== 0,
                 isPartial: true,
                 repairs: $repairs,
                 issues: $issues,

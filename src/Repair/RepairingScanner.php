@@ -10,6 +10,7 @@ use zonuexe\BrokenJson\DecodeOptions;
 use zonuexe\BrokenJson\RepairAction;
 use zonuexe\BrokenJson\RepairActionType;
 use function array_pop;
+use function count;
 use function ctype_space;
 use function ctype_xdigit;
 use function in_array;
@@ -150,7 +151,7 @@ final class RepairingScanner
 
         $this->repairDanglingTail();
 
-        while ($this->stack !== []) {
+        while (count($this->stack) !== 0) {
             $this->stripTrailingComma();
             $opener = array_pop($this->stack);
             $closer = $opener === '{' ? '}' : ']';
