@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+
+      - name: Cache Composer directory
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache
+            ~/.cache/composer
+          key: composer-8.5-stable-${{ hashFiles('composer.lock', 'vendor-bin/*/composer.lock') }}
+          restore-keys: |
+            composer-8.5-stable-
+            composer-
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run format and static analysis
+        run: make fmt phpstan
+
+  test:
+    runs-on: ubuntu-latest
+    env:
+      INFECTION_DIFF_BASE: origin/${{ github.event.repository.default_branch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.4', '8.5']
+        prefer-lowest: [false]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: xdebug
+
+      - name: Cache Composer directory
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache
+            ~/.cache/composer
+          key: composer-${{ matrix.php-version }}-${{ matrix.prefer-lowest }}-${{ hashFiles('composer.lock', 'vendor-bin/*/composer.lock') }}
+          restore-keys: |
+            composer-${{ matrix.php-version }}-${{ matrix.prefer-lowest }}-
+            composer-${{ matrix.php-version }}-
+            composer-
+
+      - name: Install dependencies
+        run: |
+          if [[ '${{ matrix.prefer-lowest }}' == 'true' ]]; then
+            composer update --no-interaction --prefer-dist --prefer-lowest
+          else
+            make install
+          fi
+
+      - name: Run tests
+        run: make test
+
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.4', '8.5']
+        prefer-lowest: [false]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+
+      - name: Cache Composer directory
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache
+            ~/.cache/composer
+          key: composer-${{ matrix.php-version }}-${{ matrix.prefer-lowest }}-${{ hashFiles('composer.lock', 'vendor-bin/*/composer.lock') }}
+          restore-keys: |
+            composer-${{ matrix.php-version }}-${{ matrix.prefer-lowest }}-
+            composer-${{ matrix.php-version }}-
+            composer-
+
+      - name: Install dependencies
+        run: |
+          if [[ '${{ matrix.prefer-lowest }}' == 'true' ]]; then
+            composer update --no-interaction --prefer-dist --prefer-lowest
+          else
+            make install
+          fi
+
+      - name: Run fuzz smoke test
+        run: make fuzz FUZZ_MAX_RUNS=2000 FUZZ_TIMEOUT=5

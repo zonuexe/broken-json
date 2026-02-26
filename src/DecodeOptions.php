@@ -3,8 +3,7 @@
 declare(strict_types=1);
 
 namespace zonuexe\BrokenJson;
-
-use function assert;
+use ValueError;
 
 final readonly class DecodeOptions
 {
@@ -23,7 +22,9 @@ final readonly class DecodeOptions
         public int $depth = 512,
         public int $decodeFlags = 0,
     ) {
-        assert($depth > 0);
+        if ($depth < 1) {
+            throw new ValueError('depth must be greater than 0.');
+        }
     }
 
     public function shouldInsertNullForDanglingColon(): bool

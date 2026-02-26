@@ -17,6 +17,7 @@
 - Full local check (full Infection): `make qa-all`
 - Run only when needed: `make fmt-fix`, `make infection`, `make infection-all`, `make fuzz`
 - Fuzz crash replay/minimize: `make fuzz-single INPUT=...`, `make fuzz-minimize INPUT=...`
+- CI currently runs stable deps only; enable `prefer-lowest` matrix when external package dependencies increase.
 
 ## Coding Style
 - Always run `make fmt-fix` immediately after code edits.
