@@ -10,6 +10,9 @@
     },
     "initialTestsPhpOptions": "-d xdebug.mode=coverage",
     "mutators": {
+        "global-ignore": [
+            "zonuexe\\BrokenJson\\Internal\\Utf8Sanitizer::sanitize::16"
+        ],
         "@default": true
     },
     "staticAnalysisTool":"phpstan",
