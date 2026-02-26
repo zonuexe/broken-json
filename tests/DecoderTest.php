@@ -8,6 +8,7 @@ use AssertionError;
 use Generator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use zonuexe\BrokenJson\DecodeIssue;
 use zonuexe\BrokenJson\DecodeIssueType;
@@ -15,6 +16,8 @@ use zonuexe\BrokenJson\DecodeOptions;
 use zonuexe\BrokenJson\Decoder;
 use zonuexe\BrokenJson\DecodeResult;
 use zonuexe\BrokenJson\DecoderFactory;
+use zonuexe\BrokenJson\Internal\IconvUtf8Sanitizer;
+use zonuexe\BrokenJson\Internal\MbstringUtf8Sanitizer;
 use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
 use zonuexe\BrokenJson\RepairAction;
@@ -26,7 +29,6 @@ use function fopen;
 use function fwrite;
 use function json_decode;
 use function json_encode;
-use function preg_match;
 use function property_exists;
 use function rewind;
 use function str_repeat;
@@ -43,7 +45,8 @@ use const DIRECTORY_SEPARATOR;
 #[CoversClass(RepairAction::class)]
 #[CoversClass(RepairActionType::class)]
 #[CoversClass(RepairingScanner::class)]
-#[CoversClass(Utf8Sanitizer::class)]
+#[UsesClass(IconvUtf8Sanitizer::class)]
+#[UsesClass(MbstringUtf8Sanitizer::class)]
 final class DecoderTest extends TestCase
 {
     use PrivateHelper;
@@ -108,7 +111,7 @@ final class DecoderTest extends TestCase
         self::assertSame($expected, $result->value);
     }
 
-    public function testDecodeStreamUtf8BoundaryAt8192ProducesDecodeFailure(): void
+    public function testDecodeStreamUtf8BoundaryAt8192CanRecoverWhenSanitizerPreservesBytes(): void
     {
         $stream = fopen('php://temp', 'r+');
         self::assertIsResource($stream);
@@ -116,15 +119,26 @@ final class DecoderTest extends TestCase
         fwrite($stream, $payload);
         rewind($stream);
 
-        $result = DecoderFactory::create()->decodeStream($stream);
-        $issueTypes = array_map(
-            static fn ($decodeIssue): DecodeIssueType => $decodeIssue->type,
-            $result->issues,
-        );
+        $result = DecoderFactory::create(utf8Sanitizer: $this->createPassthroughUtf8Sanitizer())
+            ->decodeStream($stream);
 
-        self::assertNull($result->value);
-        self::assertTrue($result->isPartial);
-        self::assertContains(DecodeIssueType::JsonDecodeFailed, $issueTypes);
+        self::assertSame(['x' => str_repeat('a', 8185) . 'é'], $result->value);
+    }
+
+    #[DataProvider('provideDecodeStreamChunkCountCases')]
+    public function testDecodeStreamChunkCount(int $valueLength, int $expectedChunkCount): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        self::assertIsResource($stream);
+        fwrite($stream, '{"x":"' . str_repeat('a', $valueLength) . '"}');
+        rewind($stream);
+
+        $chunkCounter = 0;
+        DecoderFactory::create(
+            utf8Sanitizer: $this->createCountingUtf8Sanitizer($chunkCounter),
+        )->decodeStream($stream);
+
+        self::assertSame($expectedChunkCount, $chunkCounter);
     }
 
     /**
@@ -435,15 +449,6 @@ final class DecoderTest extends TestCase
         self::assertSame(3, $repairs[0]->position);
     }
 
-    #[DataProvider('provideUtf8SanitizerCases')]
-    public function testUtf8SanitizerBehavior(string $input, string $expected): void
-    {
-        $sanitized = Utf8Sanitizer::sanitize($input);
-
-        self::assertSame($expected, $sanitized);
-        self::assertSame(1, preg_match('//u', $sanitized));
-    }
-
     /**
      * @phpstan-param array<value-of<RepairActionType>, 0|positive-int> $expectedPositionsByType
      */
@@ -566,6 +571,15 @@ final class DecoderTest extends TestCase
     }
 
     /**
+     * @phpstan-return iterable<list{int, int}>
+     */
+    public static function provideDecodeStreamChunkCountCases(): iterable
+    {
+        yield '16383 bytes => 2 chunks' => [16376, 2];
+        yield '16386 bytes => 3 chunks' => [16379, 3];
+    }
+
+    /**
      * @phpstan-return iterable<array{source: string, chunks: list<string>, expected: mixed}>
      */
     public static function provideDecodeAcrossSourcesCases(): iterable
@@ -669,15 +683,6 @@ final class DecoderTest extends TestCase
         yield ['{]', DecodeIssueType::MismatchedCloser, 1];
         yield ['', DecodeIssueType::JsonDecodeFailed, -1];
         yield ['{"x":"\u12g"}', DecodeIssueType::InvalidUnicodeEscape, 10];
-    }
-
-    /**
-     * @phpstan-return iterable<list{string, string}>
-     */
-    public static function provideUtf8SanitizerCases(): iterable
-    {
-        yield ['hello', 'hello'];
-        yield ["\xC3\x28", '('];
     }
 
     /**
@@ -797,6 +802,33 @@ final class DecoderTest extends TestCase
         }
 
         return DecoderFactory::create()->decodeFile('/path/that/does/not/exist.json');
+    }
+
+    private function createPassthroughUtf8Sanitizer(): Utf8Sanitizer
+    {
+        return new class () implements Utf8Sanitizer {
+            public function sanitize(string $value): string
+            {
+                return $value;
+            }
+        };
+    }
+
+    private function createCountingUtf8Sanitizer(int &$chunkCounter): Utf8Sanitizer
+    {
+        return new class ($chunkCounter) implements Utf8Sanitizer {
+            public function __construct(
+                private int &$chunkCounter,
+            ) {
+            }
+
+            public function sanitize(string $value): string
+            {
+                ++$this->chunkCounter;
+
+                return $value;
+            }
+        };
     }
 
     /**
