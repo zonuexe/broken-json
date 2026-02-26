@@ -17,7 +17,7 @@ final class Utf8Sanitizer
         }
 
         if (function_exists('iconv')) {
-            $sanitized = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+            $sanitized = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
             if ($sanitized !== false) {
                 return $sanitized;
             }
