@@ -4,7 +4,9 @@ parameters:
 	paths:
 		- src/
 		- tests/
+		- fuzz/target_decoder.php
 	bootstrapFiles:
+		- vendor-bin/fuzzer/vendor/autoload.php
 		- vendor-bin/phpunit/vendor/autoload.php
 		- vendor/symplify/easy-coding-standard/vendor/autoload.php
 includes:

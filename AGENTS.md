@@ -15,7 +15,8 @@
 - Full mutation run: `make test-all` (includes full Infection)
 - Full local check: `make qa` (uses diff-based Infection)
 - Full local check (full Infection): `make qa-all`
-- Run only when needed: `make fmt-fix`, `make infection`, `make infection-all`
+- Run only when needed: `make fmt-fix`, `make infection`, `make infection-all`, `make fuzz`
+- Fuzz crash replay/minimize: `make fuzz-single INPUT=...`, `make fuzz-minimize INPUT=...`
 
 ## Coding Style
 - Always run `make fmt-fix` immediately after code edits.
