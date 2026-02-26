@@ -19,6 +19,7 @@ use zonuexe\BrokenJson\Internal\Utf8Sanitizer;
 use zonuexe\BrokenJson\Repair\RepairingScanner;
 use zonuexe\BrokenJson\RepairAction;
 use zonuexe\BrokenJson\RepairActionType;
+use zonuexe\BrokenJson\Tests\Support\PrivateHelper;
 use function array_map;
 use function file_put_contents;
 use function fopen;
@@ -45,6 +46,8 @@ use const DIRECTORY_SEPARATOR;
 #[CoversClass(Utf8Sanitizer::class)]
 final class DecoderTest extends TestCase
 {
+    use PrivateHelper;
+
     public function testItRecoversTruncatedNestedJson(): void
     {
         $json = '{"foo": {"name": "foo", "bar": {"buz": ["text data", "huge.........text';
@@ -352,6 +355,84 @@ final class DecoderTest extends TestCase
 
         self::assertNull($result->value);
         self::assertSame(DecodeIssueType::JsonDecodeFailed, $result->issues[0]->type);
+    }
+
+    public function testScannerFinalizeResetsStringFlagsToStableState(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $scanner->push('{"x":"abc\\');
+        $scanner->finalize();
+
+        self::assertFalse($this->readPrivateProperty($scanner, 'inString'));
+        self::assertFalse($this->readPrivateProperty($scanner, 'escaping'));
+        self::assertSame(0, $this->readPrivateProperty($scanner, 'unicodeRemaining'));
+    }
+
+    public function testScannerInvalidUnicodeEscapeClearsUnicodeRemainingCounter(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $scanner->push('{"x":"\u12g"}');
+
+        self::assertSame(0, $this->readPrivateProperty($scanner, 'unicodeRemaining'));
+    }
+
+    public function testScannerLastNonWhitespaceIndexReturnsMinusOneForWhitespaceBuffer(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $this->writePrivateProperty($scanner, 'buffer', " \n\t ");
+
+        self::assertSame(-1, $this->invokePrivateMethod($scanner, 'lastNonWhitespaceIndex'));
+    }
+
+    public function testScannerStripTrailingCommaHandlesIndexZero(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $this->writePrivateProperty($scanner, 'buffer', ',');
+        $this->writePrivateProperty($scanner, 'repairs', []);
+
+        $this->invokePrivateMethod($scanner, 'stripTrailingComma');
+        $repairs = $this->readPrivateProperty($scanner, 'repairs');
+
+        self::assertSame('', $this->readPrivateProperty($scanner, 'buffer'));
+        self::assertIsArray($repairs);
+        self::assertCount(1, $repairs);
+        self::assertInstanceOf(RepairAction::class, $repairs[0]);
+        self::assertSame(RepairActionType::RemoveTrailingComma, $repairs[0]->type);
+        self::assertSame(0, $repairs[0]->position);
+    }
+
+    public function testScannerStripTrailingCommaPreservesBufferPrefix(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $this->writePrivateProperty($scanner, 'buffer', 'abc,');
+        $this->writePrivateProperty($scanner, 'repairs', []);
+
+        $this->invokePrivateMethod($scanner, 'stripTrailingComma');
+        $repairs = $this->readPrivateProperty($scanner, 'repairs');
+
+        self::assertSame('abc', $this->readPrivateProperty($scanner, 'buffer'));
+        self::assertIsArray($repairs);
+        self::assertCount(1, $repairs);
+        self::assertInstanceOf(RepairAction::class, $repairs[0]);
+        self::assertSame(RepairActionType::RemoveTrailingComma, $repairs[0]->type);
+        self::assertSame(3, $repairs[0]->position);
+    }
+
+    public function testScannerStripTrailingCommaPreservesTrailingWhitespace(): void
+    {
+        $scanner = new RepairingScanner(new DecodeOptions());
+        $this->writePrivateProperty($scanner, 'buffer', 'abc,   ');
+        $this->writePrivateProperty($scanner, 'repairs', []);
+
+        $this->invokePrivateMethod($scanner, 'stripTrailingComma');
+        $repairs = $this->readPrivateProperty($scanner, 'repairs');
+
+        self::assertSame('abc   ', $this->readPrivateProperty($scanner, 'buffer'));
+        self::assertIsArray($repairs);
+        self::assertCount(1, $repairs);
+        self::assertInstanceOf(RepairAction::class, $repairs[0]);
+        self::assertSame(RepairActionType::RemoveTrailingComma, $repairs[0]->type);
+        self::assertSame(3, $repairs[0]->position);
     }
 
     #[DataProvider('provideUtf8SanitizerCases')]
