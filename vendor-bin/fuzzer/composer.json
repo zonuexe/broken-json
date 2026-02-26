@@ -1,0 +1,5 @@
+{
+    "require-dev": {
+        "nikic/php-fuzzer": "^0.0.11"
+    }
+}

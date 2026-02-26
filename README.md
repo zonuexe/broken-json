@@ -90,6 +90,26 @@ $json = json_encode($result, JSON_THROW_ON_ERROR);
 #=> {"value":{"foo":{"name":"foo","bar":{"buz":["text data","huge.........text"]}}},"isRecovered":true,...}
 ```
 
+## Fuzzing
+
+This repository includes a `php-fuzzer` target for crash-oriented stress testing.
+
+```bash
+make fuzz
+#=> runs bounded fuzzing (default: 5000 runs, 5s timeout/input)
+#=> override: make fuzz FUZZ_MAX_RUNS=20000 FUZZ_TIMEOUT=3
+```
+
+To replay or minimize a crash input:
+
+```bash
+make fuzz-single INPUT=crash-xxxx.txt
+#=> executes one input against the fuzz target
+
+make fuzz-minimize INPUT=crash-xxxx.txt
+#=> creates minimized-*.txt candidates
+```
+
 ## Repair Policy
 
 Use `DecodeOptions` to control behavior:
