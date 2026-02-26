@@ -8,6 +8,8 @@
     "phpUnit": {
         "customPath": "vendor-bin/phpunit/vendor/bin/phpunit"
     },
+    "threads": 1,
+    "timeout": 20,
     "initialTestsPhpOptions": "-d xdebug.mode=coverage",
     "mutators": {
         "global-ignore": [
