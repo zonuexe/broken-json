@@ -1,0 +1,17 @@
+.editorconfig export-ignore
+.github/ export-ignore
+.gitignore export-ignore
+.infection/ export-ignore
+.phpunit.cache/ export-ignore
+.tmp-fuzz/ export-ignore
+AGENTS.md export-ignore
+DESIGN.md export-ignore
+Makefile export-ignore
+composer.lock export-ignore
+ecs.php export-ignore
+fuzz/ export-ignore
+infection.json5 export-ignore
+phpstan.dist.neon export-ignore
+phpunit.xml.dist export-ignore
+tests/ export-ignore
+vendor-bin/ export-ignore
